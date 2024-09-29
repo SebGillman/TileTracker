@@ -1,19 +1,23 @@
 package sebgillman.strava_activity_processing;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 public class Controller {
+    // private static final String template = "Hello, %s!";
+    // private final AtomicLong counter = new AtomicLong();
 
-	private static final String template = "Hello, %s!";
-	private final AtomicLong counter = new AtomicLong();
-
-	@GetMapping("/greeting")
-	public Greeting greeting(@RequestParam(value = "name", defaultValue = "World") String name) {
-		return new Greeting(counter.incrementAndGet(), String.format(template, name));
-	}
+    @PostMapping("/process-activity")
+    public void ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) {
+        int userId = reqBody.getUserId();
+        int activityId = reqBody.getActivityId();
+        List<List<Double>> coords = reqBody.getCoords();
+        // do request to strava to get 
+        System.out.println(String.format("ActivityId: %d", activityId));
+        System.out.println(String.format("Coords: %s", coords));
+    }
 }
