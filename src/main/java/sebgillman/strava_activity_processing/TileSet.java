@@ -36,9 +36,134 @@ public final class TileSet {
         }
         set = getOutline(routeTiles);
 
+        fillOutline();
     }
+
+    private void fillOutline() {
+
+        // get bounding box of the outline
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
+
+        for (List<Integer> tile : set) {
+            int tX = tile.get(0);
+            int tY = tile.get(1);
+            minX = Math.min(minX, tX);
+            maxX = Math.max(maxX, tX);
+            minY = Math.min(minY, tY);
+            maxY = Math.max(maxY, tY);
+        }
+
+        // keep a set of tiles to add to this.set as adding them in the iteration messes up isInside()
+        HashSet<List<Integer>> toAddList = new HashSet<>();
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                List<Integer> currentTile = Arrays.asList(x, y);
+                // if already visited or not inside outline, skip
+                if (set.contains(currentTile) || toAddList.contains(currentTile) || !isInside(currentTile)) {
+                    continue;
+                }
+                toAddList.addAll(floodFill(currentTile));
             }
         }
+        set.addAll(toAddList);
+
+    }
+
+    private List<List<Integer>> floodFill(List<Integer> startTile) {
+
+        List<List<Integer>> filledTiles = new ArrayList<>();
+
+        int[][] directions = {
+            {1, 0}, // Right
+            {0, 1}, // Up
+            {-1, 0}, // Left
+            {0, -1}, // Down
+        };
+
+        List<List<Integer>> queue = new ArrayList<>();
+        queue.add(startTile);
+
+        // BFS
+        while (!queue.isEmpty()) {
+
+            List<Integer> currentTile = queue.remove(0);
+            int cX = currentTile.get(0), cY = currentTile.get(1);
+
+            filledTiles.add(currentTile);
+
+            for (int[] direction : directions) {
+                int nX = cX + direction[0];
+                int nY = cY + direction[1];
+
+                List<Integer> candidateTile = Arrays.asList(nX, nY);
+                if (queue.contains(candidateTile) || filledTiles.contains(candidateTile) || set.contains(candidateTile)) {
+                    continue;
+                }
+                queue.add(candidateTile);
+            }
+        }
+        return filledTiles;
+    }
+
+    private boolean isInside(List<Integer> candidateTile) {
+
+        // 4-axis ray casting to check if odd number of edge crossings in each axis
+        int posX = 0, posY = 0, negX = 0, negY = 0;
+
+        int candidateX = candidateTile.get(0);
+        int candidateY = candidateTile.get(1);
+
+        HashSet<List<Integer>> visitedTiles = new HashSet<>();
+
+        for (List<Integer> tile : set) {
+            int cx = tile.get(0);
+            int cy = tile.get(1);
+
+            if (tile == candidateTile) {
+                return false;
+            }
+
+            if (cx != candidateX && cy != candidateY) {
+                continue;
+            }
+
+            if (visitedTiles.contains(Arrays.asList(cx - 1, cy))) {
+                visitedTiles.add(Arrays.asList(cx, cy));
+                continue;
+            } else if (visitedTiles.contains(Arrays.asList(cx + 1, cy))) {
+                visitedTiles.add(Arrays.asList(cx, cy));
+                continue;
+            } else if (visitedTiles.contains(Arrays.asList(cx, cy - 1))) {
+                visitedTiles.add(Arrays.asList(cx, cy));
+                continue;
+            } else if (visitedTiles.contains(Arrays.asList(cx, cy + 1))) {
+                visitedTiles.add(Arrays.asList(cx, cy));
+                continue;
+            }
+
+            visitedTiles.add(tile);
+
+            if (cx == candidateX) {
+
+                if (cy > candidateY) {
+                    posY++;
+                } else {
+                    negY++;
+                }
+            } else if (cy == candidateY) {
+
+                if (cx > candidateX) {
+                    posX++;
+                } else {
+                    negX++;
+                }
+            }
+        }
+        return (posX % 2 == 1) && (negX % 2 == 1) && (posY % 2 == 1) && (negY % 2 == 1);
+
+    }
+
     private HashSet<List<Integer>> getOutline(HashSet<List<Integer>> filledTiles) {
         HashSet<List<Integer>> outline = new HashSet<>();
         HashSet<Edge> visitedEdges = new HashSet<>();
