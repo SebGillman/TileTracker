@@ -1,5 +1,8 @@
 package sebgillman.strava_activity_processing;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -7,7 +10,7 @@ import java.util.List;
 
 public class TileSet {
 
-    private static final Integer TILE_SIZE = 3;
+    private static final Integer TILE_SIZE = 100;
     private static final double EARTH_RADIUS = 6371000;
 
     private final HashSet<List<Integer>> set = new HashSet<>();
@@ -24,7 +27,9 @@ public class TileSet {
             // interpolate to get all tiles in line segment
             List<List<Integer>> segmentTiles = interpolateTiles(startTile, endTile);
 
-            segmentTiles.forEach(tile -> set.add(tile));
+            for (List<Integer> tile : segmentTiles) {
+                set.add(tile);
+            }
         }
     }
 
@@ -75,6 +80,40 @@ public class TileSet {
         int tileY = (int) (y / TILE_SIZE);
 
         return Arrays.asList(tileX, tileY);
+    }
+
+    public void writeRepresentation() throws IOException {
+        List<List<Integer>> tileList = new ArrayList<>(set);
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
+
+        // Calculate bounds for the grid
+        for (List<Integer> tile : tileList) {
+            minX = Math.min(minX, tile.get(0));
+            maxX = Math.max(maxX, tile.get(0));
+            minY = Math.min(minY, tile.get(1));
+            maxY = Math.max(maxY, tile.get(1));
+        }
+
+        // Use StringBuilder for efficient appending
+        StringBuilder out = new StringBuilder();
+
+        // Iterate through the range and build the representation
+        for (int y = maxY + 1; y >= minY - 1; y--) {
+            for (int x = minX - 1; x <= maxX + 1; x++) {
+                // Instead of creating a list for lookup, use a custom key or data structure
+                if (set.contains(Arrays.asList(x, y))) {
+                    out.append("@");
+                } else {
+                    out.append(" ");
+                }
+            }
+            out.append("\n");  // New line after each row
+        }
+
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter("outputVisualisation.txt"))) {
+            writer.write(out.toString());
+            writer.close();
+        }
     }
 
     public HashSet<List<Integer>> getSet() {

@@ -1,5 +1,6 @@
 package sebgillman.strava_activity_processing;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class Controller {
 
     @PostMapping("/process-activity")
-    public void ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) {
+    public void ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
         int userId = reqBody.getUserId();
         int activityId = reqBody.getActivityId();
         List<List<Double>> coords = reqBody.getCoords();
@@ -21,6 +22,8 @@ public class Controller {
 
         TileSet tiles = new TileSet(coords);
         System.out.println(String.format("tiles: %s", tiles.getSet()));
+
+        tiles.writeRepresentation();
 
     }
 
