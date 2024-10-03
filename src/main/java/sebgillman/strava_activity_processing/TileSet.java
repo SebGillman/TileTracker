@@ -10,8 +10,7 @@ import java.util.List;
 
 public final class TileSet {
 
-    private static final Integer TILE_SIZE = 100;
-    private static final double EARTH_RADIUS = 6371000;
+    private static final Double TILE_SIZE_DEGREES = 0.0005;
 
     private final HashSet<List<Integer>> set;
 
@@ -262,15 +261,17 @@ public final class TileSet {
     }
 
     private List<Integer> coordToTileIndexes(List<Double> coord) {
-        double latRad = Math.toRadians(coord.get(0));
-        double lonRad = Math.toRadians(coord.get(1));
+        double latitude = coord.get(0);
+        double longitude = coord.get(1);
 
-        double x = EARTH_RADIUS * lonRad * Math.cos(latRad);  // longitude -> x coordinate
-        double y = EARTH_RADIUS * latRad;                     // latitude -> y coordinate
+        // Normalize longitude to be in the range [0, 360)
+        if (longitude < 0) {
+            longitude += 360;
+        }
 
-        // Convert to tile indices
-        int tileX = (int) (x / TILE_SIZE);
-        int tileY = (int) (y / TILE_SIZE);
+        // Calculate tile indices based on the tile size
+        int tileX = (int) Math.floor(longitude / TILE_SIZE_DEGREES);
+        int tileY = (int) Math.floor(latitude / TILE_SIZE_DEGREES); // 90 to flip the y-axis
 
         return Arrays.asList(tileX, tileY);
     }
