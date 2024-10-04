@@ -13,8 +13,8 @@ public class Controller {
 
     @PostMapping("/process-activity")
     public void ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
-        int userId = reqBody.getUserId();
-        int activityId = reqBody.getActivityId();
+        Double userId = reqBody.getUserId();
+        Double activityId = reqBody.getActivityId();
         List<List<Double>> coords = reqBody.getCoords();
 
         TileSet tileSet = new TileSet(coords);

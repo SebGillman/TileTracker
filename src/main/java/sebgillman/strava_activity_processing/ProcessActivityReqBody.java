@@ -4,23 +4,23 @@ import java.util.List;
 
 public class ProcessActivityReqBody {
 
-    private int userId;
-    private int activityId;
+    private Double userId;
+    private Double activityId;
     private List<List<Double>> coords;
 
-    public int getUserId() {
+    public Double getUserId() {
         return userId;
     }
 
-    public void setUserId(int userId) {
+    public void setUserId(Double userId) {
         this.userId = userId;
     }
 
-    public int getActivityId() {
+    public Double getActivityId() {
         return activityId;
     }
 
-    public void setActivityId(int activityId) {
+    public void setActivityId(Double activityId) {
         this.activityId = activityId;
     }
 
