@@ -10,7 +10,8 @@ import java.util.List;
 
 public final class TileSet {
 
-    private static final Double TILE_SIZE_DEGREES = 0.0005;
+    // private static final Double TILE_SIZE_DEGREES = 0.0005;
+    private static final Double TILE_SIZE_DEGREES = 0.001;
 
     private final HashSet<List<Integer>> set;
 
@@ -34,7 +35,6 @@ public final class TileSet {
             // get just the outline of the route
         }
         set = getOutline(routeTiles);
-
         fillOutline();
     }
 
@@ -179,8 +179,21 @@ public final class TileSet {
             {-1, -1} // Bottom-left
         };
 
-        // Starting tile for edge tracking
-        List<Integer> startTile = filledTiles.iterator().next(); // Pick any filled tile
+        // Starting tile for edge tracking with top-most point
+        List<List<Integer>> filledTileList = new ArrayList<>(filledTiles); // Pick any filled tile
+
+        int startIndex = 0;
+        int maxY = Integer.MIN_VALUE;
+
+        for (int i = 0; i < filledTileList.size(); i++) {
+            int cY = filledTileList.get(i).get(1);
+            if (cY > maxY) {
+                maxY = cY;
+                startIndex = i;
+            }
+        }
+
+        List<Integer> startTile = filledTileList.get(startIndex);
         List<Integer> currentTile = startTile;
 
         // Store the current direction
