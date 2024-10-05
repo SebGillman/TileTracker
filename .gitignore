@@ -34,3 +34,4 @@ build/
 
 ### Project Files ###
 outputVisualisation.txt
+.env

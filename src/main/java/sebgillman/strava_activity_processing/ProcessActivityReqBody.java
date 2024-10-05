@@ -4,23 +4,24 @@ import java.util.List;
 
 public class ProcessActivityReqBody {
 
-    private Double userId;
-    private Double activityId;
+    private Long userId;
+    private Long activityId;
     private List<List<Double>> coords;
+    private Long createdAt;
 
-    public Double getUserId() {
+    public Long getUserId() {
         return userId;
     }
 
-    public void setUserId(Double userId) {
+    public void setUserId(Long userId) {
         this.userId = userId;
     }
 
-    public Double getActivityId() {
+    public Long getActivityId() {
         return activityId;
     }
 
-    public void setActivityId(Double activityId) {
+    public void setActivityId(Long activityId) {
         this.activityId = activityId;
     }
 
@@ -30,5 +31,13 @@ public class ProcessActivityReqBody {
 
     public void setCoords(List<List<Double>> coords) {
         this.coords = coords;
+    }
+
+    public Long getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Long createdAt) {
+        this.createdAt = createdAt;
     }
 }
