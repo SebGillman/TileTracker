@@ -5,6 +5,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
@@ -32,15 +33,16 @@ public final class TileSet {
                 routeTiles.add(tile);
             }
 
-            // get just the outline of the route
+            // get just the outlineFrequencies of the route
         }
-        set = getOutline(routeTiles);
-        fillOutline();
+        HashMap<List<Integer>, Integer> outline = getOutline(routeTiles);
+        set = new HashSet<>(outline.keySet());
+        fillOutline(outline);
     }
 
-    private void fillOutline() {
+    private void fillOutline(HashMap<List<Integer>, Integer> outline) {
 
-        // get bounding box of the outline
+        // get bounding box of the outlineFrequencies
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
 
         for (List<Integer> tile : set) {
@@ -52,25 +54,29 @@ public final class TileSet {
             maxY = Math.max(maxY, tY);
         }
 
-        // keep a set of tiles to add to this.set as adding them in the iteration messes up isInside()
-        HashSet<List<Integer>> toAddList = new HashSet<>();
+        boolean tileAdded;
+        do {
+            tileAdded = false;
+            // keep a set of tiles to add to this.set as adding them in the iteration messes up isInside()
+            HashSet<List<Integer>> toAddList = new HashSet<>();
 
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                List<Integer> currentTile = Arrays.asList(x, y);
-                // if already visited or not inside outline, skip
-                if (set.contains(currentTile) || toAddList.contains(currentTile) || !isInside(currentTile)) {
-                    continue;
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    List<Integer> currentTile = Arrays.asList(x, y);
+                    // if already visited or not inside outlineFrequencies, skip
+                    if (set.contains(currentTile) || toAddList.contains(currentTile) || !isInside(currentTile, outline)) {
+                        continue;
+                    }
+                    tileAdded = true;
+                    toAddList.addAll(floodFill(currentTile));
                 }
-                toAddList.addAll(floodFill(currentTile));
             }
-        }
-        set.addAll(toAddList);
+            set.addAll(toAddList);
+        } while (tileAdded);
 
     }
 
     private List<List<Integer>> floodFill(List<Integer> startTile) {
-
         List<List<Integer>> filledTiles = new ArrayList<>();
 
         int[][] directions = {
@@ -105,7 +111,8 @@ public final class TileSet {
         return filledTiles;
     }
 
-    private boolean isInside(List<Integer> candidateTile) {
+// BUG: if a rayline brushes an edge without crossing it then fails
+    private boolean isInside(List<Integer> candidateTile, HashMap<List<Integer>, Integer> outline) {
 
         // 4-axis ray casting to check if odd number of edge crossings in each axis
         int posX = 0, posY = 0, negX = 0, negY = 0;
@@ -127,35 +134,53 @@ public final class TileSet {
                 continue;
             }
 
-            if (visitedTiles.contains(Arrays.asList(cx - 1, cy))) {
-                visitedTiles.add(Arrays.asList(cx, cy));
-                continue;
-            } else if (visitedTiles.contains(Arrays.asList(cx + 1, cy))) {
-                visitedTiles.add(Arrays.asList(cx, cy));
-                continue;
-            } else if (visitedTiles.contains(Arrays.asList(cx, cy - 1))) {
-                visitedTiles.add(Arrays.asList(cx, cy));
-                continue;
-            } else if (visitedTiles.contains(Arrays.asList(cx, cy + 1))) {
-                visitedTiles.add(Arrays.asList(cx, cy));
+            if (visitedTiles.contains(tile)) {
                 continue;
             }
 
-            visitedTiles.add(tile);
+            List<List<Integer>> currentEdgeTiles = new ArrayList<>();
+
+            int dx = (cx == candidateX) ? 0 : 1;
+            int dy = (cy == candidateY) ? 0 : 1;
+
+            int incrX = cx;
+            int incrY = cy;
+            int currEdgeMaxFreq = outline.getOrDefault(tile, 1);
+
+            while (set.contains(Arrays.asList(incrX, incrY))) {
+                List<Integer> currTile = Arrays.asList(incrX, incrY);
+                currEdgeMaxFreq = Math.max(currEdgeMaxFreq, outline.getOrDefault(currTile, 1));
+                currentEdgeTiles.add(currTile);
+                incrX += dx;
+                incrY += dy;
+            }
+
+            int decrX = cx;
+            int decrY = cy;
+
+            while (set.contains(Arrays.asList(decrX, decrY))) {
+                List<Integer> currTile = Arrays.asList(decrX, decrY);
+                currEdgeMaxFreq = Math.max(currEdgeMaxFreq, outline.getOrDefault(currTile, 1));
+                currentEdgeTiles.add(currTile);
+                decrX -= dx;
+                decrY -= dy;
+            }
+
+            visitedTiles.addAll(currentEdgeTiles);
 
             if (cx == candidateX) {
 
                 if (cy > candidateY) {
-                    posY++;
+                    posY += currEdgeMaxFreq;
                 } else {
-                    negY++;
+                    negY += currEdgeMaxFreq;
                 }
             } else if (cy == candidateY) {
 
                 if (cx > candidateX) {
-                    posX++;
+                    posX += currEdgeMaxFreq;
                 } else {
-                    negX++;
+                    negX += currEdgeMaxFreq;
                 }
             }
         }
@@ -163,8 +188,8 @@ public final class TileSet {
 
     }
 
-    private HashSet<List<Integer>> getOutline(HashSet<List<Integer>> filledTiles) {
-        HashSet<List<Integer>> outline = new HashSet<>();
+    private HashMap<List<Integer>, Integer> getOutline(HashSet<List<Integer>> filledTiles) {
+        HashMap<List<Integer>, Integer> outlineFrequencies = new HashMap<>();
         HashSet<Edge> visitedEdges = new HashSet<>();
 
         // Directions for Moore's Neighbor (clockwise starting from left) and corresponding edges
@@ -179,7 +204,7 @@ public final class TileSet {
             {-1, -1} // Bottom-left
         };
 
-        // Starting tile for edge tracking with top-most point
+        // Starting tile for edge tracking with right-most tile of top-most row
         List<List<Integer>> filledTileList = new ArrayList<>(filledTiles); // Pick any filled tile
 
         int startIndex = 0;
@@ -187,7 +212,7 @@ public final class TileSet {
 
         for (int i = 0; i < filledTileList.size(); i++) {
             int cY = filledTileList.get(i).get(1);
-            if (cY > maxY) {
+            if (cY >= maxY) {
                 maxY = cY;
                 startIndex = i;
             }
@@ -197,12 +222,11 @@ public final class TileSet {
         List<Integer> currentTile = startTile;
 
         // Store the current direction
-        int lastDirection = 0;
+        int lastDirection = 4;
 
         // Track edges instead of just tiles
         do {
-            outline.add(currentTile);
-
+            outlineFrequencies.put(currentTile, 1 + outlineFrequencies.getOrDefault(currentTile, 0));
             // Traverse edges to find the next boundary tile
             boolean foundNext = false;
             for (int i = 0; i < directions.length; i++) {
@@ -235,7 +259,7 @@ public final class TileSet {
 
         } while (!currentTile.equals(startTile));  // Stop when we return to the start
 
-        return outline;
+        return outlineFrequencies;
     }
 
     private List<List<Integer>> interpolateTiles(List<Integer> startTile, List<Integer> endTile) {

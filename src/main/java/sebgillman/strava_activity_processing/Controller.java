@@ -34,7 +34,7 @@ public class Controller {
 
     @PostMapping("/process-activity")
     public void ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
-
+        System.out.println("[START] /process-activity");
         Long userId = reqBody.getUserId();
         Long activityId = reqBody.getActivityId();
         List<List<Double>> coords = reqBody.getCoords();
