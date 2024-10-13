@@ -297,7 +297,7 @@ public final class TileSet {
         return tiles;
     }
 
-    private List<Integer> coordToTileIndexes(List<Double> coord) {
+    public static List<Integer> coordToTileIndexes(List<Double> coord) {
         double latitude = coord.get(0);
         double longitude = coord.get(1);
 
