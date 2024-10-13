@@ -169,6 +169,76 @@ public class Controller {
 
     }
 
+    @GetMapping("/tiles")
+    public JSONObject Tiles(@RequestParam Map<String, String> queryParams) throws IOException, URISyntaxException, InterruptedException, ParseException {
+
+        if (!queryParams.containsKey("x1") || !queryParams.containsKey("y1")
+                || !queryParams.containsKey("x2")
+                || !queryParams.containsKey("y2")) {
+            return new JSONObject();
+        }
+        Double x1Param = Double.valueOf(queryParams.get("x1"));
+        Double x2Param = Double.valueOf(queryParams.get("x2"));
+        Double y1Param = Double.valueOf(queryParams.get("y1"));
+        Double y2Param = Double.valueOf(queryParams.get("y2"));
+
+        List<Integer> coord1 = TileSet.coordToTileIndexes(Arrays.asList(x1Param, y1Param));
+        List<Integer> coord2 = TileSet.coordToTileIndexes(Arrays.asList(x2Param, y2Param));
+
+        List<String> queryList = new ArrayList<>();
+
+        String tileQueryString = String.format("""
+        SELECT x_index, y_index, user_id, activity_id, created_at FROM tiles t1 WHERE created_at = (
+            SELECT MAX(created_at) 
+            FROM tiles t2 
+            WHERE t1.tile_id = t2.tile_id
+        ) AND t1.x_index BETWEEN %d AND %d
+        AND t1.y_index BETWEEN %d AND %d;
+        """, coord1.get(0), coord2.get(0), coord1.get(1), coord2.get(1)
+        );
+        queryList.add(tileQueryString);
+
+        // get json of results
+        JSONParser jSONParser = new JSONParser();
+        JSONObject queryResponseBody = (JSONObject) jSONParser.parse(executeDbQuery(queryList).body().toString());
+        JSONArray queryResultsArray = (JSONArray) queryResponseBody.get("results");
+
+        // get rows of tile select query
+        JSONObject tileQueryResult = (JSONObject) queryResultsArray.get(0);
+        JSONObject tileQueryResponse = (JSONObject) tileQueryResult.get("response");
+        JSONObject tileQueryResultObject = (JSONObject) tileQueryResponse.get("result");
+        JSONArray tileQueryRows = (JSONArray) tileQueryResultObject.get("rows");
+
+        List<Object> tiles = new ArrayList<>();
+
+        for (int i = 0; i < tileQueryRows.size(); i++) {
+            JSONArray row = (JSONArray) tileQueryRows.get(i);
+
+            JSONObject xObject = (JSONObject) row.get(0);
+            JSONObject yObject = (JSONObject) row.get(1);
+            JSONObject userIdObject = (JSONObject) row.get(2);
+            JSONObject activityIdObject = (JSONObject) row.get(3);
+            JSONObject createdAtObject = (JSONObject) row.get(2);
+
+            JSONObject tilesEntry = new JSONObject();
+            tilesEntry.putAll(Map.of(
+                    "x_index", Long.valueOf((String) xObject.get("value")),
+                    "y_index", Long.valueOf((String) yObject.get("value")),
+                    "user_id", Long.valueOf((String) userIdObject.get("value")),
+                    "activity_id", Long.valueOf((String) activityIdObject.get("value")),
+                    "created_at", Long.valueOf((String) createdAtObject.get("value"))
+            ));
+            tiles.add(tilesEntry.clone());
+        }
+
+        JSONObject res = new JSONObject();
+        res.put("tiles", tiles);
+        res.put("tile_count", tileQueryRows.size());
+
+        return res;
+
+    }
+
     private HttpResponse executeDbQuery(List<String> queryStrings) throws URISyntaxException, IOException, InterruptedException {
         // Create the main JSON object
         JSONObject mainObject = new JSONObject();
