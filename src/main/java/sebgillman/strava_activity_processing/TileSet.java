@@ -19,6 +19,11 @@ public final class TileSet {
     // constructor takes geographic coords and adds to set
     public TileSet(List<List<Double>> coords) {
 
+        if (coords.isEmpty()) {
+            set = new HashSet<>();
+            return;
+        }
+
         HashSet<List<Integer>> routeTiles = new HashSet<>();
         for (int i = 0; i < coords.size() - 1; i++) {
 
