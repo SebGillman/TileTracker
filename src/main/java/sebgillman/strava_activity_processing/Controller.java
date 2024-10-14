@@ -70,6 +70,11 @@ public class Controller {
         }
     }
 
+    @GetMapping("/ping")
+    public String Ping() {
+        return "Service healthy!";
+    }
+
     @GetMapping("/leaderboard")
     public JSONObject Leaderboard(@RequestParam Map<String, String> queryParams) throws IOException, URISyntaxException, InterruptedException, ParseException {
 
