@@ -33,7 +33,7 @@ public class Controller {
     private String tilesDbToken;
 
     @PostMapping("/process-activity")
-    public HttpResponse ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
+    public String ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
         System.out.println("[START] /process-activity");
         Long userId = reqBody.getUserId();
         Long activityId = reqBody.getActivityId();
@@ -64,7 +64,10 @@ public class Controller {
 
         try {
             HttpResponse response = executeDbQuery(Arrays.asList(queryString));
-            return response;
+            if (response.statusCode() != 200) {
+                throw new Error(String.format("%d: %s", response.statusCode(), response.toString()));
+            }
+            return response.toString();
         } catch (IOException | InterruptedException | URISyntaxException e) {
             throw new Error(e);
         }
