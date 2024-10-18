@@ -40,7 +40,9 @@ public final class TileSet {
 
             // get just the outlineFrequencies of the route
         }
+
         HashMap<List<Integer>, Integer> outline = getOutline(routeTiles);
+
         set = new HashSet<>(outline.keySet());
         fillOutline(outline);
     }
@@ -51,8 +53,8 @@ public final class TileSet {
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
 
         for (List<Integer> tile : set) {
-            int tX = tile.get(0);
-            int tY = tile.get(1);
+            int tX = tile.get(1);
+            int tY = tile.get(0);
             minX = Math.min(minX, tX);
             maxX = Math.max(maxX, tX);
             minY = Math.min(minY, tY);
@@ -67,7 +69,7 @@ public final class TileSet {
 
             for (int x = minX; x <= maxX; x++) {
                 for (int y = minY; y <= maxY; y++) {
-                    List<Integer> currentTile = Arrays.asList(x, y);
+                    List<Integer> currentTile = Arrays.asList(y, x);
                     // if already visited or not inside outlineFrequencies, skip
                     if (set.contains(currentTile) || toAddList.contains(currentTile) || !isInside(currentTile, outline)) {
                         continue;
@@ -98,15 +100,15 @@ public final class TileSet {
         while (!queue.isEmpty()) {
 
             List<Integer> currentTile = queue.remove(0);
-            int cX = currentTile.get(0), cY = currentTile.get(1);
+            int cX = currentTile.get(1), cY = currentTile.get(0);
 
             filledTiles.add(currentTile);
 
             for (int[] direction : directions) {
-                int nX = cX + direction[0];
-                int nY = cY + direction[1];
+                int nX = cX + direction[1];
+                int nY = cY + direction[0];
 
-                List<Integer> candidateTile = Arrays.asList(nX, nY);
+                List<Integer> candidateTile = Arrays.asList(nY, nX);
                 if (queue.contains(candidateTile) || filledTiles.contains(candidateTile) || set.contains(candidateTile)) {
                     continue;
                 }
@@ -122,14 +124,14 @@ public final class TileSet {
         // 4-axis ray casting to check if odd number of edge crossings in each axis
         int posX = 0, posY = 0, negX = 0, negY = 0;
 
-        int candidateX = candidateTile.get(0);
-        int candidateY = candidateTile.get(1);
+        int candidateX = candidateTile.get(1);
+        int candidateY = candidateTile.get(0);
 
         HashSet<List<Integer>> visitedTiles = new HashSet<>();
 
         for (List<Integer> tile : set) {
-            int cx = tile.get(0);
-            int cy = tile.get(1);
+            int cx = tile.get(1);
+            int cy = tile.get(0);
 
             if (tile == candidateTile) {
                 return false;
@@ -152,8 +154,8 @@ public final class TileSet {
             int incrY = cy;
             int currEdgeMaxFreq = outline.getOrDefault(tile, 1);
 
-            while (set.contains(Arrays.asList(incrX, incrY))) {
-                List<Integer> currTile = Arrays.asList(incrX, incrY);
+            while (set.contains(Arrays.asList(incrY, incrX))) {
+                List<Integer> currTile = Arrays.asList(incrY, incrX);
                 currEdgeMaxFreq = Math.max(currEdgeMaxFreq, outline.getOrDefault(currTile, 1));
                 currentEdgeTiles.add(currTile);
                 incrX += dx;
@@ -163,8 +165,8 @@ public final class TileSet {
             int decrX = cx;
             int decrY = cy;
 
-            while (set.contains(Arrays.asList(decrX, decrY))) {
-                List<Integer> currTile = Arrays.asList(decrX, decrY);
+            while (set.contains(Arrays.asList(decrY, decrX))) {
+                List<Integer> currTile = Arrays.asList(decrY, decrX);
                 currEdgeMaxFreq = Math.max(currEdgeMaxFreq, outline.getOrDefault(currTile, 1));
                 currentEdgeTiles.add(currTile);
                 decrX -= dx;
@@ -199,26 +201,29 @@ public final class TileSet {
 
         // Directions for Moore's Neighbor (clockwise starting from left) and corresponding edges
         int[][] directions = {
-            {-1, 0}, // Left
-            {-1, 1}, // Top-left
-            {0, 1}, // Top
+            {0, -1}, // Left
+            {1, -1}, // Top-left
+            {1, 0}, // Top
             {1, 1}, // Top-right
-            {1, 0}, // Right
-            {1, -1}, // Bottom-right
-            {0, -1}, // Bottom
+            {0, 1}, // Right
+            {-1, 1}, // Bottom-right
+            {-1, 0}, // Bottom
             {-1, -1} // Bottom-left
         };
 
-        // Starting tile for edge tracking with right-most tile of top-most row
+        // Starting tile for edge tracking with left-most tile of top-most row
         List<List<Integer>> filledTileList = new ArrayList<>(filledTiles); // Pick any filled tile
 
         int startIndex = 0;
         int maxY = Integer.MIN_VALUE;
+        int minX = Integer.MAX_VALUE;
 
         for (int i = 0; i < filledTileList.size(); i++) {
-            int cY = filledTileList.get(i).get(1);
-            if (cY >= maxY) {
+            int cY = filledTileList.get(i).get(0);
+            int cX = filledTileList.get(i).get(1);
+            if (cY > maxY || (cY == maxY && cX < minX)) {
                 maxY = cY;
+                minX = cX;
                 startIndex = i;
             }
         }
@@ -271,10 +276,10 @@ public final class TileSet {
 
         List<List<Integer>> tiles = new ArrayList<>();
 
-        int x0 = startTile.get(0);
-        int y0 = startTile.get(1);
-        int x1 = endTile.get(0);
-        int y1 = endTile.get(1);
+        int x0 = startTile.get(1);
+        int y0 = startTile.get(0);
+        int x1 = endTile.get(1);
+        int y1 = endTile.get(0);
 
         int dx = Math.abs(x1 - x0);
         int dy = Math.abs(y1 - y0);
@@ -283,7 +288,7 @@ public final class TileSet {
         int err = dx - dy;
 
         while (true) {
-            tiles.add(Arrays.asList(x0, y0));
+            tiles.add(Arrays.asList(y0, x0));
 
             if (x0 == x1 && y0 == y1) {
                 break;
@@ -303,19 +308,19 @@ public final class TileSet {
     }
 
     public static List<Integer> coordToTileIndexes(List<Double> coord) {
-        double latitude = coord.get(0);
         double longitude = coord.get(1);
+        double latitude = coord.get(0);
 
-        // Normalize longitude to be in the range [0, 360)
+        // Normalize latitude to be in the range [0, 360)
         if (longitude < 0) {
             longitude += 360;
         }
 
         // Calculate tile indices based on the tile size
-        int tileX = (int) Math.floor(longitude / TILE_SIZE_DEGREES);
-        int tileY = (int) Math.floor(latitude / TILE_SIZE_DEGREES); // 90 to flip the y-axis
+        int tileY = (int) Math.floor(latitude / TILE_SIZE_DEGREES);
+        int tileX = (int) Math.floor(longitude / TILE_SIZE_DEGREES); // 90 to flip the y-axis
 
-        return Arrays.asList(tileX, tileY);
+        return Arrays.asList(tileY, tileX);
     }
 
     public void writeRepresentation() throws IOException {
@@ -324,10 +329,10 @@ public final class TileSet {
 
         // Calculate bounds for the grid
         for (List<Integer> tile : tileList) {
-            minX = Math.min(minX, tile.get(0));
-            maxX = Math.max(maxX, tile.get(0));
-            minY = Math.min(minY, tile.get(1));
-            maxY = Math.max(maxY, tile.get(1));
+            minX = Math.min(minX, tile.get(1));
+            maxX = Math.max(maxX, tile.get(1));
+            minY = Math.min(minY, tile.get(0));
+            maxY = Math.max(maxY, tile.get(0));
         }
 
         // Use StringBuilder for efficient appending
@@ -337,7 +342,7 @@ public final class TileSet {
         for (int y = maxY + 1; y >= minY - 1; y--) {
             for (int x = minX - 1; x <= maxX + 1; x++) {
                 // Instead of creating a list for lookup, use a custom key or data structure
-                if (set.contains(Arrays.asList(x, y))) {
+                if (set.contains(Arrays.asList(y, x))) {
                     out.append("@");
                 } else {
                     out.append(" ");

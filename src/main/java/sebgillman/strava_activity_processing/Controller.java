@@ -48,8 +48,8 @@ public class Controller {
 
         StringBuilder records = new StringBuilder();
         tiles.forEach(tile -> {
-            Integer x = tile.get(0);
-            Integer y = tile.get(1);
+            Integer x = tile.get(1);
+            Integer y = tile.get(0);
             if (records.length() != 0) {
                 records.append(",");
             }
@@ -191,8 +191,8 @@ public class Controller {
         Double y1Param = Double.valueOf(queryParams.get("y1"));
         Double y2Param = Double.valueOf(queryParams.get("y2"));
 
-        List<Integer> coord1 = TileSet.coordToTileIndexes(Arrays.asList(x1Param, y1Param));
-        List<Integer> coord2 = TileSet.coordToTileIndexes(Arrays.asList(x2Param, y2Param));
+        List<Integer> coord1 = TileSet.coordToTileIndexes(Arrays.asList(y1Param, x1Param));
+        List<Integer> coord2 = TileSet.coordToTileIndexes(Arrays.asList(y2Param, x2Param));
 
         List<String> queryList = new ArrayList<>();
 
@@ -203,7 +203,7 @@ public class Controller {
             WHERE t1.tile_id = t2.tile_id
         ) AND t1.x_index BETWEEN %d AND %d
         AND t1.y_index BETWEEN %d AND %d;
-        """, coord1.get(0), coord2.get(0), coord1.get(1), coord2.get(1)
+        """, coord1.get(1), coord2.get(1), coord1.get(0), coord2.get(0)
         );
         queryList.add(tileQueryString);
 

@@ -35,3 +35,4 @@ build/
 ### Project Files ###
 outputVisualisation.txt
 .env
+setenv.ps1
