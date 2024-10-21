@@ -196,15 +196,18 @@ public class Controller {
 
         List<String> queryList = new ArrayList<>();
 
-        String tileQueryString = String.format("""
-        SELECT x_index, y_index, user_id, activity_id, created_at FROM tiles t1 WHERE created_at = (
-            SELECT MAX(created_at) 
-            FROM tiles t2 
-            WHERE t1.tile_id = t2.tile_id
-        ) AND t1.x_index BETWEEN %d AND %d
-        AND t1.y_index BETWEEN %d AND %d;
-        """, coord1.get(1), coord2.get(1), coord1.get(0), coord2.get(0)
+        String tileQueryString = String.format(
+                "SELECT x_index, y_index, user_id, activity_id, created_at "
+                + "FROM tiles t1 WHERE created_at = ( "
+                + "SELECT MAX(created_at) FROM tiles t2 WHERE t1.tile_id = t2.tile_id) "
+                + "AND ((%d <= %d AND t1.x_index BETWEEN %d AND %d) OR (%d > %d AND (t1.x_index BETWEEN %d AND 360000 OR (t1.x_index + 360000) BETWEEN %d AND %d + 360000))) "
+                + "AND ((%d <= %d AND t1.y_index BETWEEN %d AND %d) OR (%d > %d AND (t1.y_index BETWEEN %d AND 360000 OR (t1.y_index + 360000) BETWEEN %d AND %d + 360000)));",
+                coord1.get(1), coord2.get(1), coord1.get(1), coord2.get(1), // x_index logic part 1 (normal range)
+                coord1.get(1), coord2.get(1), coord1.get(1), coord1.get(1), coord2.get(1), // x_index logic part 2 (wrap-around range)
+                coord1.get(0), coord2.get(0), coord1.get(0), coord2.get(0), // y_index logic part 1 (normal range)
+                coord1.get(0), coord2.get(0), coord1.get(0), coord1.get(0), coord2.get(0) // y_index logic part 2 (wrap-around range)
         );
+
         queryList.add(tileQueryString);
 
         // get json of results
