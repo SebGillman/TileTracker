@@ -66,24 +66,43 @@ public final class TileSet {
             tileAdded = false;
             // keep a set of tiles to add to this.set as adding them in the iteration messes up isInside()
             HashSet<List<Integer>> toAddList = new HashSet<>();
+            HashSet<List<Integer>> visitedSet = new HashSet<>();
 
             for (int x = minX; x <= maxX; x++) {
                 for (int y = minY; y <= maxY; y++) {
                     List<Integer> currentTile = Arrays.asList(y, x);
                     // if already visited or not inside outlineFrequencies, skip
-                    if (set.contains(currentTile) || toAddList.contains(currentTile) || !isInside(currentTile, outline)) {
+                    if (set.contains(currentTile) || toAddList.contains(currentTile) || visitedSet.contains(currentTile) || !isInside(currentTile, outline)) {
                         continue;
                     }
-                    tileAdded = true;
-                    toAddList.addAll(floodFill(currentTile));
+                    FloodFillOutput floodFillOutput = floodFill(currentTile);
+                    if (floodFillOutput.isInside()) {
+                        tileAdded = true;
+                        toAddList.addAll(floodFillOutput.getTiles());
+                    }
+                    visitedSet.addAll(floodFillOutput.getTiles());
                 }
             }
             set.addAll(toAddList);
         } while (tileAdded);
-
     }
 
-    private List<List<Integer>> floodFill(List<Integer> startTile) {
+    private FloodFillOutput floodFill(List<Integer> startTile) {
+
+        boolean inside = true;
+
+        // get bounding box of the outlineFrequencies
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE;
+
+        for (List<Integer> tile : set) {
+            int tX = tile.get(1);
+            int tY = tile.get(0);
+            minX = Math.min(minX, tX);
+            maxX = Math.max(maxX, tX);
+            minY = Math.min(minY, tY);
+            maxY = Math.max(maxY, tY);
+        }
+
         List<List<Integer>> filledTiles = new ArrayList<>();
 
         int[][] directions = {
@@ -112,10 +131,14 @@ public final class TileSet {
                 if (queue.contains(candidateTile) || filledTiles.contains(candidateTile) || set.contains(candidateTile)) {
                     continue;
                 }
+                if (nX == minX || nX == maxX || nY == minY || nY == maxY) {
+                    inside = false;
+                    continue;
+                }
                 queue.add(candidateTile);
             }
         }
-        return filledTiles;
+        return new FloodFillOutput(inside, filledTiles);
     }
 
 // BUG: if a rayline brushes an edge without crossing it then fails
@@ -235,10 +258,13 @@ public final class TileSet {
         int lastDirection = 4;
 
         // Track edges instead of just tiles
+        boolean foundNext = true;
+        boolean edgeRevisited = false;
         do {
             outlineFrequencies.put(currentTile, 1 + outlineFrequencies.getOrDefault(currentTile, 0));
             // Traverse edges to find the next boundary tile
-            boolean foundNext = false;
+            foundNext = false;
+            edgeRevisited = false;
             for (int i = 0; i < directions.length; i++) {
                 int dirIndex = (lastDirection + i) % directions.length;
                 int[] direction = directions[dirIndex];
@@ -251,6 +277,12 @@ public final class TileSet {
                 // Define the edge being traversed (from current tile to the neighbor)
                 Edge currentEdge = new Edge(currentTile, neighbor);
 
+                // if a revisited edge found
+                if (visitedEdges.contains(currentEdge)) {
+                    edgeRevisited = true;
+                    break;
+                }
+
                 // If the neighbor is a boundary tile and the edge hasn't been visited
                 if (filledTiles.contains(neighbor) && !visitedEdges.contains(currentEdge)) {
                     // Mark the edge as visited
@@ -262,12 +294,7 @@ public final class TileSet {
                 }
             }
 
-            // If no neighbor is found, break (edge complete)
-            if (!foundNext) {
-                break;
-            }
-
-        } while (!currentTile.equals(startTile));  // Stop when we return to the start
+        } while (foundNext && !edgeRevisited);  // Stop when we return to the start
 
         return outlineFrequencies;
     }
@@ -394,5 +421,32 @@ class Edge {
     @Override
     public int hashCode() {
         return from.hashCode() + to.hashCode();
+    }
+}
+
+class FloodFillOutput {
+
+    boolean inside;
+    List<List<Integer>> tiles;
+
+    public FloodFillOutput(boolean inside, List<List<Integer>> tiles) {
+        this.inside = inside;
+        this.tiles = tiles;
+    }
+
+    public boolean isInside() {
+        return inside;
+    }
+
+    public void setInside(boolean inside) {
+        this.inside = inside;
+    }
+
+    public List<List<Integer>> getTiles() {
+        return tiles;
+    }
+
+    public void setTiles(List<List<Integer>> tiles) {
+        this.tiles = tiles;
     }
 }
