@@ -258,8 +258,8 @@ public final class TileSet {
         int lastDirection = 4;
 
         // Track edges instead of just tiles
-        boolean foundNext = true;
-        boolean edgeRevisited = false;
+        boolean foundNext;
+        boolean edgeRevisited;
         do {
             outlineFrequencies.put(currentTile, 1 + outlineFrequencies.getOrDefault(currentTile, 0));
             // Traverse edges to find the next boundary tile
