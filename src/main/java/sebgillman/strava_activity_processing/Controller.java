@@ -159,19 +159,21 @@ public class Controller {
             JSONObject userResultObject = (JSONObject) userResponse.get("result");
             JSONArray userRows = (JSONArray) userResultObject.get("rows");
 
-            JSONArray userRow = (JSONArray) userRows.get(0);
+            if (!userRows.isEmpty()) {
 
-            JSONObject rankObject = (JSONObject) userRow.get(0);
-            JSONObject userIdObject = (JSONObject) userRow.get(1);
-            JSONObject scoreObject = (JSONObject) userRow.get(2);
+                JSONArray userRow = (JSONArray) userRows.get(0);
 
-            JSONObject userEntry = new JSONObject();
-            userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
-                    "user_id", Long.valueOf((String) userIdObject.get("value")),
-                    "score", Integer.valueOf((String) scoreObject.get("value"))));
+                JSONObject rankObject = (JSONObject) userRow.get(0);
+                JSONObject userIdObject = (JSONObject) userRow.get(1);
+                JSONObject scoreObject = (JSONObject) userRow.get(2);
 
-            res.put("user", userEntry);
+                JSONObject userEntry = new JSONObject();
+                userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
+                        "user_id", Long.valueOf((String) userIdObject.get("value")),
+                        "score", Integer.valueOf((String) scoreObject.get("value"))));
 
+                res.put("user", userEntry);
+            }
         }
 
         return res;
