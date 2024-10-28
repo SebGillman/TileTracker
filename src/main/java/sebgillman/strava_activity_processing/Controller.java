@@ -135,42 +135,38 @@ public class Controller {
     @GetMapping("/leaderboard")
     public JSONObject Leaderboard(@RequestParam Map<String, String> queryParams) throws IOException, URISyntaxException, InterruptedException, ParseException {
 
+        Integer gameId = queryParams.containsKey("game_id") ? Integer.valueOf(queryParams.get("game_id")) : 1;
         Integer limit = queryParams.containsKey("limit") ? Integer.valueOf(queryParams.get("limit")) : 100;
         Integer offset = queryParams.containsKey("offset") ? Integer.valueOf(queryParams.get("offset")) : 0;
-        Long userId = queryParams.containsKey("user_id") ? Long.valueOf(queryParams.get("user_id")) : null;
+        String userId = queryParams.containsKey("user_id") ? (String) queryParams.get("user_id") : null;
+
+        System.out.println("USERID " + userId);
 
         List<String> queryList = new ArrayList<>();
 
         String leaderboardQuery = String.format("""
-        SELECT DENSE_RANK() OVER (ORDER BY score DESC) AS rank, user_id, score
-        FROM (
-            SELECT user_id, count(tile_id) AS score 
-            FROM (
-                SELECT * FROM tiles t1 WHERE created_at = (
-                    SELECT MAX(created_at) 
-                    FROM tiles t2 
-                    WHERE t1.tile_id = t2.tile_id
-                )
-            )
-            GROUP BY user_id
-        )
-        ORDER BY score DESC
+        SELECT 
+            DENSE_RANK () OVER(ORDER BY count(tile_id) DESC) as rank,  
+            user_id, 
+            COUNT(tile_id) as score 
+        FROM tile_ownership_%d 
+        GROUP BY user_id
         LIMIT %d
         OFFSET %d;
-        """, limit, offset
+        """, gameId, limit, offset
         );
         queryList.add(leaderboardQuery);
 
         if (userId != null) {
             String userRankQuery = String.format("""
-            SELECT *
-            FROM (
-                SELECT DENSE_RANK() OVER (ORDER BY count(tile_id) DESC) AS rank, user_id, count(tile_id) AS score 
-                FROM tiles
-                GROUP BY user_id
-            )
-            WHERE user_id = %d;
-            """, userId
+            SELECT 
+                DENSE_RANK () OVER(ORDER BY count(tile_id) DESC) as rank,  
+                user_id, 
+                COUNT(tile_id) as score 
+            FROM tile_ownership_%d 
+            GROUP BY user_id
+            HAVING user_id = "%s";
+            """, gameId, userId
             );
             queryList.add(userRankQuery);
         }
@@ -197,7 +193,7 @@ public class Controller {
 
             JSONObject leaderboardEntry = new JSONObject();
             leaderboardEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
-                    "user_id", Long.valueOf((String) userIdObject.get("value")),
+                    "user_id", (String) userIdObject.get("value"),
                     "score", Integer.valueOf((String) scoreObject.get("value"))));
 
             leaderboard.add(leaderboardEntry.clone());
@@ -210,23 +206,25 @@ public class Controller {
             // get rows of userId select query if included
             JSONObject userResult = (JSONObject) queryResultsArray.get(1);
             JSONObject userResponse = (JSONObject) userResult.get("response");
-            JSONObject userResultObject = (JSONObject) userResponse.get("result");
-            JSONArray userRows = (JSONArray) userResultObject.get("rows");
+            if (userResponse != null) {
+                JSONObject userResultObject = (JSONObject) userResponse.get("result");
+                JSONArray userRows = (JSONArray) userResultObject.get("rows");
 
-            if (!userRows.isEmpty()) {
+                if (!userRows.isEmpty()) {
 
-                JSONArray userRow = (JSONArray) userRows.get(0);
+                    JSONArray userRow = (JSONArray) userRows.get(0);
 
-                JSONObject rankObject = (JSONObject) userRow.get(0);
-                JSONObject userIdObject = (JSONObject) userRow.get(1);
-                JSONObject scoreObject = (JSONObject) userRow.get(2);
+                    JSONObject rankObject = (JSONObject) userRow.get(0);
+                    JSONObject userIdObject = (JSONObject) userRow.get(1);
+                    JSONObject scoreObject = (JSONObject) userRow.get(2);
 
-                JSONObject userEntry = new JSONObject();
-                userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
-                        "user_id", Long.valueOf((String) userIdObject.get("value")),
-                        "score", Integer.valueOf((String) scoreObject.get("value"))));
+                    JSONObject userEntry = new JSONObject();
+                    userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
+                            "user_id", (String) userIdObject.get("value"),
+                            "score", Integer.valueOf((String) scoreObject.get("value"))));
 
-                res.put("user", userEntry);
+                    res.put("user", userEntry);
+                }
             }
         }
 
