@@ -33,7 +33,7 @@ public class Controller {
     private String tilesDbToken;
 
     @PostMapping("/process-activity")
-    public String ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException {
+    public String ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException, ParseException, URISyntaxException, InterruptedException {
         System.out.println("[START] /process-activity");
         Long userId = reqBody.getUserId();
         Long activityId = reqBody.getActivityId();
@@ -46,6 +46,23 @@ public class Controller {
 
         HashSet<List<Integer>> tiles = tileSet.getSet();
 
+        // GET USERS GAMES
+        String queryString = String.format("SELECT game_id,team FROM game_users WHERE user_id=%d", userId);
+        HttpResponse response = executeDbQuery(Arrays.asList(queryString));
+
+        JSONParser jsonParser = new JSONParser();
+
+        JSONObject queryResponseBody = (JSONObject) jsonParser.parse(response.body().toString());
+        JSONArray queryResultsArray = (JSONArray) queryResponseBody.get("results");
+
+        JSONObject gamesResult = (JSONObject) queryResultsArray.get(0);
+        JSONObject gamesResponse = (JSONObject) gamesResult.get("response");
+        JSONObject gamesResultObject = (JSONObject) gamesResponse.get("result");
+        JSONArray gamesRows = (JSONArray) gamesResultObject.get("rows");
+
+        System.out.println(userId.toString() + " IS IN GAMES " + gamesRows.toString());
+
+        // INPUT VALUES
         StringBuilder records = new StringBuilder();
         tiles.forEach(tile -> {
             Integer x = tile.get(1);
@@ -54,23 +71,60 @@ public class Controller {
                 records.append(",");
             }
             String recordString = String.format("('%s',%d,%d,%d,%d,%d)",
-                    Integer.toString(x) + "," + Integer.toString(y), x, y,
-                    userId, activityId, createdAt);
+                    Integer.toString(x) + "," + Integer.toString(y), x, y, activityId, createdAt, userId);
 
             records.append(recordString);
         });
 
-        String queryString = String.format("INSERT OR REPLACE INTO tiles (tile_id, x_index, y_index, user_id, activity_id, created_at) VALUES %s;", records.toString());
+        for (int i = 0; i < gamesRows.size(); i++) {
+            JSONArray row = (JSONArray) gamesRows.get(i);
 
-        try {
-            HttpResponse response = executeDbQuery(Arrays.asList(queryString));
-            if (response.statusCode() != 200) {
-                throw new Error(String.format("%d: %s", response.statusCode(), response.toString()));
+            JSONObject gameIdObject = (JSONObject) row.get(0);
+            JSONObject teamObject = (JSONObject) row.get(1);
+
+            Integer gameId = Integer.valueOf((String) gameIdObject.get("value"));
+
+            String insertRecords = records.toString();
+            if (teamObject.containsKey("value")) {
+                String team = (String) teamObject.get("value");
+
+                StringBuilder teamRecords = new StringBuilder();
+
+                String[] splitRecords = insertRecords.split("\\),?");
+                // System.out.println("splitRecords" + Arrays.toString(splitRecords));
+                for (String record : splitRecords) {
+                    String[] splitRecord = record.split(",");
+                    teamRecords.append(teamRecords.isEmpty() ? "" : ",")
+                            .append(String.join(",", Arrays.copyOfRange(splitRecord, 0, splitRecord.length - 1)))
+                            .append(",")
+                            .append(String.format("'%s'", team))
+                            .append(")");
+                }
+                insertRecords = teamRecords.toString();
             }
-            return response.toString();
-        } catch (IOException | InterruptedException | URISyntaxException e) {
-            throw new Error(e);
+
+            queryString = String.format("INSERT INTO tile_ownership_%d"
+                    + " (tile_id, x_index, y_index, activity_id, created_at,user_id)"
+                    + " VALUES %s"
+                    + " ON CONFLICT(tile_id) DO"
+                    + " UPDATE SET"
+                    + "   x_index = EXCLUDED.x_index,"
+                    + "   y_index = EXCLUDED.y_index,"
+                    + "   activity_id = EXCLUDED.activity_id,"
+                    + "   created_at = EXCLUDED.created_at,"
+                    + "   user_id = EXCLUDED.user_id"
+                    + " WHERE EXCLUDED.created_at > tile_ownership_%d.created_at;;", gameId, insertRecords, gameId);
+            try {
+                response = executeDbQuery(Arrays.asList(queryString));
+                if (response.statusCode() != 200) {
+                    throw new Error(String.format("%d: %s", response.statusCode(), response.toString()));
+                }
+            } catch (IOException | InterruptedException | URISyntaxException e) {
+                throw new Error(e);
+            }
         }
+        return "ok";
+
     }
 
     @GetMapping("/ping")
