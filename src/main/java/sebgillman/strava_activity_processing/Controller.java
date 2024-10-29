@@ -140,8 +140,6 @@ public class Controller {
         Integer offset = queryParams.containsKey("offset") ? Integer.valueOf(queryParams.get("offset")) : 0;
         String userId = queryParams.containsKey("user_id") ? (String) queryParams.get("user_id") : null;
 
-        System.out.println("USERID " + userId);
-
         List<String> queryList = new ArrayList<>();
 
         String leaderboardQuery = String.format("""
@@ -240,6 +238,8 @@ public class Controller {
                 || !queryParams.containsKey("y2")) {
             return new JSONObject();
         }
+
+        Integer gameId = queryParams.containsKey("game_id") ? Integer.valueOf(queryParams.get("game_id")) : 1;
         Double x1Param = Double.valueOf(queryParams.get("x1"));
         Double x2Param = Double.valueOf(queryParams.get("x2"));
         Double y1Param = Double.valueOf(queryParams.get("y1"));
@@ -250,14 +250,22 @@ public class Controller {
 
         List<String> queryList = new ArrayList<>();
 
-        System.out.println(coord1.toString() + " " + coord2.toString());
-
-        String tileQueryString = String.format(
-                "SELECT x_index, y_index, user_id, activity_id, created_at "
-                + "FROM tiles t1 WHERE created_at = ( "
-                + "SELECT MAX(created_at) FROM tiles t2 WHERE t1.tile_id = t2.tile_id) "
-                + "AND ((%d <= %d AND t1.x_index BETWEEN %d AND %d) OR (%d > %d AND (t1.x_index BETWEEN %d AND 360000 OR (t1.x_index) BETWEEN 0 AND %d))) "
-                + "AND ((%d <= %d AND t1.y_index BETWEEN %d AND %d) OR (%d > %d AND (t1.y_index BETWEEN %d AND 360000 OR (t1.y_index) BETWEEN 0 AND %d)));",
+        String tileQueryString = String.format("""
+                SELECT x_index, y_index, user_id, activity_id, created_at
+                FROM tile_ownership_%d
+                WHERE 
+                (
+                    (%d <= %d AND x_index BETWEEN %d AND %d) 
+                    OR (%d > %d AND (x_index BETWEEN %d AND 360000 OR (x_index) BETWEEN 0 AND %d))
+                ) 
+                AND 
+                (   
+                    (%d <= %d AND y_index BETWEEN %d AND %d) 
+                    OR (%d > %d AND (y_index BETWEEN %d AND 360000 OR (y_index) BETWEEN 0 AND %d))
+                )
+                ;
+                """,
+                gameId,
                 coord1.get(1), coord2.get(1), coord1.get(1), coord2.get(1), // x_index logic part 1 (normal range)
                 coord1.get(1), coord2.get(1), coord1.get(1), coord2.get(1), // x_index logic part 2 (wrap-around range)
                 coord1.get(0), coord2.get(0), coord1.get(0), coord2.get(0), // y_index logic part 1 (normal range)
@@ -286,13 +294,13 @@ public class Controller {
             JSONObject yObject = (JSONObject) row.get(1);
             JSONObject userIdObject = (JSONObject) row.get(2);
             JSONObject activityIdObject = (JSONObject) row.get(3);
-            JSONObject createdAtObject = (JSONObject) row.get(2);
+            JSONObject createdAtObject = (JSONObject) row.get(4);
 
             JSONObject tilesEntry = new JSONObject();
             tilesEntry.putAll(Map.of(
                     "x_index", Long.valueOf((String) xObject.get("value")),
                     "y_index", Long.valueOf((String) yObject.get("value")),
-                    "user_id", Long.valueOf((String) userIdObject.get("value")),
+                    "user_id", (String) userIdObject.get("value"),
                     "activity_id", Long.valueOf((String) activityIdObject.get("value")),
                     "created_at", Long.valueOf((String) createdAtObject.get("value"))
             ));
