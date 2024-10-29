@@ -32,6 +32,67 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
+    // TODO: Add user to game
+    @PostMapping("/create-game")
+    public String CreateGame(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+        // Create game if doesn't exist
+
+        if (!reqBody.containsKey("game_id")) {
+            throw new Error("Bad request: missing game_id");
+        }
+        if (!reqBody.containsKey("name")) {
+            throw new Error("Bad request: missing name");
+        }
+        Integer gameId = (Integer) reqBody.get("game_id");
+        String gameName = (String) reqBody.get("name");
+        Boolean isTeamGame = (reqBody.containsKey("teams") && reqBody.get("teams") != null) ? (boolean) reqBody.get("teams") : false;
+
+        String queryString = String.format("""
+                                    INSERT INTO games (id, name, teams)
+                                    VALUES (%d,"%s",%b);
+                                    """, gameId, gameName, isTeamGame);
+        HttpResponse response = executeDbQuery(Arrays.asList(queryString));
+
+        JSONParser jsonParser = new JSONParser();
+
+        JSONObject resJson = (JSONObject) jsonParser.parse(response.body().toString());
+        JSONArray results = (JSONArray) resJson.get("results");
+        JSONObject insertResult = (JSONObject) results.get(0);
+
+        if (!insertResult.containsKey("type") || !String.valueOf(insertResult.get("type")).equals("ok")) {
+            return "No changes made: " + response.body().toString();
+        }
+
+        // CREATE TABLE
+        List<String> queries = Arrays.asList(String.format("""
+        CREATE TABLE tile_ownership_%d(
+            tile_id text not null,
+            x_index integer not null,
+            y_index integer not null,
+            user_id text not null,
+            activity_id integer not null,
+            created_at integer not null,
+            PRIMARY KEY (tile_id)
+        );
+        """, gameId),
+                String.format("""
+        CREATE TRIGGER check_if_newer_capture_%d
+        BEFORE UPDATE ON tile_ownership_%d
+        FOR EACH ROW
+        BEGIN
+            SELECT RAISE(ABORT, 'Tile capture not newer than current owner')
+            WHERE NOT(NEW.created_at >OLD.created_at);
+        END;
+        """, gameId, gameId));
+
+        response = executeDbQuery(queries);
+
+        if (response.statusCode() != 200) {
+            throw new Error("Failed to create table, table mismatch may have occurred");
+        }
+        return response.body().toString();
+    }
+
     @PostMapping("/process-activity")
     public String ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException, ParseException, URISyntaxException, InterruptedException {
         System.out.println("[START] /process-activity");
