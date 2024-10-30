@@ -32,8 +32,34 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
-    // TODO: Get teams endpoint
-    // TODO: Get players games
+    @GetMapping("/user-games")
+    public JSONArray ListUsersGames(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
+
+        if (!queryParams.containsKey("user_id")) {
+            throw new Error("Bad request, missing user_id");
+        }
+
+        Integer userId = Integer.valueOf(queryParams.get("user_id"));
+
+        // Check game_id & isTeamGame
+        String queryString = String.format("SELECT game_id, team FROM game_users WHERE user_id = %d;", userId);
+        JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
+        ArrayList<List<JSONObject>> userGameRows = (ArrayList) queryResults.get(0);
+
+        JSONArray userGames = new JSONArray();
+
+        for (List<JSONObject> gameRow : userGameRows) {
+            JSONObject rowObject = new JSONObject();
+            rowObject.put("game_id", gameRow.get(0).get("value"));
+            if (gameRow.get(1) != null) {
+                rowObject.put("team", gameRow.get(1).get("value"));
+            }
+            userGames.add(rowObject.clone());
+        }
+
+        return userGames;
+    }
+
     @GetMapping("/teams")
     public JSONArray ListGameTeams(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
