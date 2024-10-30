@@ -32,9 +32,27 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
-    // TODO: Add team endpoint
     // TODO: Get teams endpoint
     // TODO: Get players games
+    @GetMapping("/teams")
+    public JSONArray ListGameTeams(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
+
+        Integer gameId = queryParams.containsKey("game_id") ? Integer.valueOf(queryParams.get("game_id")) : 1;
+
+        // Check game_id & isTeamGame
+        String queryString = String.format("SELECT team FROM game_teams WHERE game_id = %d;", gameId);
+        JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
+        ArrayList<List<JSONObject>> gameTeamRows = (ArrayList) queryResults.get(0);
+
+        JSONArray gameTeams = new JSONArray();
+
+        for (List<JSONObject> teamRow : gameTeamRows) {
+            gameTeams.add(teamRow.get(0).get("value"));
+        }
+
+        return gameTeams;
+    }
+
     @PostMapping("/add-team")
     public String AddTeam(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
@@ -57,7 +75,7 @@ public class Controller {
             throw new Error("This game does not exist.");
         }
 
-        // Check isTeamGame matches whether team specified
+        // Check isTeamGame
         JSONArray gameCheckRow = (JSONArray) gameCheckResult.get(0);
         JSONObject teamObject = (JSONObject) gameCheckRow.get(0);
         Boolean isTeamGame = Integer.parseInt((String) teamObject.get("value")) == 1;
