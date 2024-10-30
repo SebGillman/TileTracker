@@ -32,6 +32,61 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
+    @PostMapping("/add-player")
+    public String AddPlayer(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+
+        if (!reqBody.containsKey("user_id")) {
+            throw new Error("Bad request: missing user_id");
+        }
+
+        Integer userId = (Integer) reqBody.get("user_id");
+        Integer gameId = (reqBody.containsKey("game_id")) ? (int) reqBody.get("game_id") : 1;
+        String team = (reqBody.containsKey("team") && reqBody.get("team") != null) ? (String) reqBody.get("team") : null;
+
+        // Check game_id & isTeamGame
+        String queryString = String.format("SELECT teams FROM games WHERE id = %d;", gameId);
+        JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
+        JSONArray gameCheckResult = (JSONArray) queryResults.get(0);
+
+        if (gameCheckResult.isEmpty()) {
+            throw new Error("This game does not exist.");
+        }
+
+        // Check isTeamGame matches whether team specified
+        JSONArray gameCheckRow = (JSONArray) gameCheckResult.get(0);
+        JSONObject teamObject = (JSONObject) gameCheckRow.get(0);
+        Boolean isTeamGame = Integer.parseInt((String) teamObject.get("value")) == 1;
+
+        if (isTeamGame == (team == null)) {
+            throw new Error(String.format("Gave team as %s when game teams setting is %b", (team == null) ? "null" : team, isTeamGame));
+        }
+
+        // if isTeamGame:
+        if (isTeamGame) {
+            //check if team exists
+            queryString = String.format("SELECT * FROM game_teams WHERE game_id = %d AND team = '%s';", gameId, team);
+            queryResults = executeDbQuery(Arrays.asList(queryString));
+            JSONArray teamCheckRows = (JSONArray) queryResults.get(0);
+            if (teamCheckRows.isEmpty()) {
+                throw new Error("Specified team does not exist in this game");
+            }
+        }
+
+        // add user
+        queryString = (team == null)
+                ? String.format("INSERT INTO game_users (user_id,game_id) VALUES (%d,%d);", userId, gameId)
+                : String.format(
+                        """
+                        INSERT INTO game_users (user_id,game_id,team) 
+                        VALUES (%d,%d,'%s') 
+                        ON CONFLICT (user_id, game_id)
+                        DO UPDATE SET team = EXCLUDED.team;
+                        """, userId, gameId, team);
+
+        executeDbQuery(Arrays.asList(queryString));
+        return "ok";
+    }
+
     // TODO: Add user to game
     @PostMapping("/create-game")
     public String CreateGame(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
