@@ -51,21 +51,11 @@ public class Controller {
                                     INSERT INTO games (id, name, teams)
                                     VALUES (%d,"%s",%b);
                                     """, gameId, gameName, isTeamGame);
-        HttpResponse response = executeDbQuery(Arrays.asList(queryString));
-
-        JSONParser jsonParser = new JSONParser();
-
-        JSONObject resJson = (JSONObject) jsonParser.parse(response.body().toString());
-        JSONArray results = (JSONArray) resJson.get("results");
-        JSONObject insertResult = (JSONObject) results.get(0);
-
-        if (!insertResult.containsKey("type") || !String.valueOf(insertResult.get("type")).equals("ok")) {
-            return "No changes made: " + response.body().toString();
-        }
+        executeDbQuery(Arrays.asList(queryString));
 
         // CREATE TABLE
         List<String> queries = Arrays.asList(String.format("""
-        CREATE TABLE tile_ownership_%d(
+        CREATE TABLE IF NOT EXISTS tile_ownership_%d(
             tile_id text not null,
             x_index integer not null,
             y_index integer not null,
@@ -76,7 +66,7 @@ public class Controller {
         );
         """, gameId),
                 String.format("""
-        CREATE TRIGGER check_if_newer_capture_%d
+        CREATE TRIGGER IF NOT EXISTS check_if_newer_capture_%d
         BEFORE UPDATE ON tile_ownership_%d
         FOR EACH ROW
         BEGIN
@@ -85,12 +75,9 @@ public class Controller {
         END;
         """, gameId, gameId));
 
-        response = executeDbQuery(queries);
+        executeDbQuery(queries);
 
-        if (response.statusCode() != 200) {
-            throw new Error("Failed to create table, table mismatch may have occurred");
-        }
-        return response.body().toString();
+        return "ok";
     }
 
     @PostMapping("/process-activity")
@@ -109,17 +96,9 @@ public class Controller {
 
         // GET USERS GAMES
         String queryString = String.format("SELECT game_id,team FROM game_users WHERE user_id=%d", userId);
-        HttpResponse response = executeDbQuery(Arrays.asList(queryString));
+        JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
 
-        JSONParser jsonParser = new JSONParser();
-
-        JSONObject queryResponseBody = (JSONObject) jsonParser.parse(response.body().toString());
-        JSONArray queryResultsArray = (JSONArray) queryResponseBody.get("results");
-
-        JSONObject gamesResult = (JSONObject) queryResultsArray.get(0);
-        JSONObject gamesResponse = (JSONObject) gamesResult.get("response");
-        JSONObject gamesResultObject = (JSONObject) gamesResponse.get("result");
-        JSONArray gamesRows = (JSONArray) gamesResultObject.get("rows");
+        JSONArray gamesRows = (JSONArray) queryResults.get(0);
 
         System.out.println(userId.toString() + " IS IN GAMES " + gamesRows.toString());
 
@@ -176,10 +155,7 @@ public class Controller {
                     + "   user_id = EXCLUDED.user_id"
                     + " WHERE EXCLUDED.created_at > tile_ownership_%d.created_at;;", gameId, insertRecords, gameId);
             try {
-                response = executeDbQuery(Arrays.asList(queryString));
-                if (response.statusCode() != 200) {
-                    throw new Error(String.format("%d: %s", response.statusCode(), response.toString()));
-                }
+                executeDbQuery(Arrays.asList(queryString));
             } catch (IOException | InterruptedException | URISyntaxException e) {
                 throw new Error(e);
             }
@@ -231,15 +207,9 @@ public class Controller {
         }
 
         // get json of results
-        JSONParser jSONParser = new JSONParser();
-        JSONObject queryResponseBody = (JSONObject) jSONParser.parse(executeDbQuery(queryList).body().toString());
-        JSONArray queryResultsArray = (JSONArray) queryResponseBody.get("results");
+        JSONArray queryResponses = executeDbQuery(queryList);
 
-        // get rows of leaderboard select query
-        JSONObject leaderboardResult = (JSONObject) queryResultsArray.get(0);
-        JSONObject leaderboardResponse = (JSONObject) leaderboardResult.get("response");
-        JSONObject leaderboardResultObject = (JSONObject) leaderboardResponse.get("result");
-        JSONArray leaderboardRows = (JSONArray) leaderboardResultObject.get("rows");
+        JSONArray leaderboardRows = (JSONArray) queryResponses.get(0);
 
         List<Object> leaderboard = new ArrayList<>();
 
@@ -261,30 +231,26 @@ public class Controller {
         JSONObject res = new JSONObject();
         res.put("leaderboard", leaderboard);
 
-        if (queryResultsArray.size() > 2) {
+        if (queryResponses.size() > 1) {
             // get rows of userId select query if included
-            JSONObject userResult = (JSONObject) queryResultsArray.get(1);
-            JSONObject userResponse = (JSONObject) userResult.get("response");
-            if (userResponse != null) {
-                JSONObject userResultObject = (JSONObject) userResponse.get("result");
-                JSONArray userRows = (JSONArray) userResultObject.get("rows");
+            JSONArray userRows = (JSONArray) queryResponses.get(1);
 
-                if (!userRows.isEmpty()) {
+            if (!userRows.isEmpty()) {
 
-                    JSONArray userRow = (JSONArray) userRows.get(0);
+                JSONArray userRow = (JSONArray) userRows.get(0);
 
-                    JSONObject rankObject = (JSONObject) userRow.get(0);
-                    JSONObject userIdObject = (JSONObject) userRow.get(1);
-                    JSONObject scoreObject = (JSONObject) userRow.get(2);
+                JSONObject rankObject = (JSONObject) userRow.get(0);
+                JSONObject userIdObject = (JSONObject) userRow.get(1);
+                JSONObject scoreObject = (JSONObject) userRow.get(2);
 
-                    JSONObject userEntry = new JSONObject();
-                    userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
-                            "user_id", (String) userIdObject.get("value"),
-                            "score", Integer.valueOf((String) scoreObject.get("value"))));
+                JSONObject userEntry = new JSONObject();
+                userEntry.putAll(Map.of("rank", Integer.valueOf((String) rankObject.get("value")),
+                        "user_id", (String) userIdObject.get("value"),
+                        "score", Integer.valueOf((String) scoreObject.get("value"))));
 
-                    res.put("user", userEntry);
-                }
+                res.put("user", userEntry);
             }
+
         }
 
         return res;
@@ -336,15 +302,9 @@ public class Controller {
         queryList.add(tileQueryString);
 
         // get json of results
-        JSONParser jSONParser = new JSONParser();
-        JSONObject queryResponseBody = (JSONObject) jSONParser.parse(executeDbQuery(queryList).body().toString());
-        JSONArray queryResultsArray = (JSONArray) queryResponseBody.get("results");
+        JSONArray queryResponses = executeDbQuery(queryList);
 
-        // get rows of tile select query
-        JSONObject tileQueryResult = (JSONObject) queryResultsArray.get(0);
-        JSONObject tileQueryResponse = (JSONObject) tileQueryResult.get("response");
-        JSONObject tileQueryResultObject = (JSONObject) tileQueryResponse.get("result");
-        JSONArray tileQueryRows = (JSONArray) tileQueryResultObject.get("rows");
+        JSONArray tileQueryRows = (JSONArray) queryResponses.get(0);
 
         List<Object> tiles = new ArrayList<>();
 
@@ -376,7 +336,7 @@ public class Controller {
 
     }
 
-    private HttpResponse executeDbQuery(List<String> queryStrings) throws URISyntaxException, IOException, InterruptedException {
+    private JSONArray executeDbQuery(List<String> queryStrings) throws URISyntaxException, IOException, InterruptedException, ParseException {
         // Create the main JSON object
         JSONObject mainObject = new JSONObject();
         // Create the JSON array for "requests"
@@ -412,7 +372,26 @@ public class Controller {
                 .build()
                 .send(httpRequest, BodyHandlers.ofString());
 
-        return response;
+        JSONParser jsonParser = new JSONParser();
+        JSONObject querySetResponseBody = (JSONObject) jsonParser.parse(response.body());
+        ArrayList querySetResultsArray = (ArrayList) querySetResponseBody.get("results");
+
+        // remove db close result
+        List querySetResultsArrayWithOutClose = querySetResultsArray.subList(0, querySetResultsArray.size() - 1);
+
+        JSONArray formattedQueryResponses = new JSONArray();
+
+        for (Object result : querySetResultsArrayWithOutClose) {
+            JSONObject resultJSON = (JSONObject) result;
+            JSONObject responseJSON = (JSONObject) resultJSON.get("response");
+            if (responseJSON != null) {
+                JSONObject resultObjectJSON = (JSONObject) responseJSON.get("result");
+                JSONArray rowsArray = (JSONArray) resultObjectJSON.get("rows");
+                formattedQueryResponses.add(rowsArray);
+            }
+        }
+
+        return formattedQueryResponses;
     }
 
 }
