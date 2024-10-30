@@ -32,6 +32,8 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
+    // TODO: Remove user from game (if not team game delete their tiles)
+    // TODO: Delete game (delete row, users, teams, and table)
     @GetMapping("/user-games")
     public JSONArray ListUsersGames(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
@@ -331,15 +333,31 @@ public class Controller {
         queryList.add(leaderboardQuery);
 
         if (userId != null) {
+            // Check if team game, if so, will need to query by team
+            String userTeamQuery = String.format("""
+            SELECT team from game_users WHERE user_id = %s AND game_id = %d;
+            """, userId, gameId);
+            JSONArray userTeamResult = executeDbQuery(Arrays.asList(userTeamQuery));
+            JSONArray userTeamRows = (JSONArray) userTeamResult.get(0);
+
+            String team = null;
+            if (!userTeamRows.isEmpty()) {
+                JSONArray userTeamRow = (JSONArray) userTeamRows.get(0);
+                JSONObject userTeamObject = (JSONObject) userTeamRow.get(0);
+                team = (String) userTeamObject.get("value");
+            }
+            String player = (team == null) ? userId : team;
+
             String userRankQuery = String.format("""
-            SELECT 
+            SELECT * FROM (SELECT 
                 DENSE_RANK () OVER(ORDER BY count(tile_id) DESC) as rank,  
                 user_id, 
                 COUNT(tile_id) as score 
             FROM tile_ownership_%d 
             GROUP BY user_id
-            HAVING user_id = "%s";
-            """, gameId, userId
+            ) t1
+            WHERE t1.user_id = %s;
+            """, gameId, player
             );
             queryList.add(userRankQuery);
         }
