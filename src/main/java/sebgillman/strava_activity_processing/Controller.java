@@ -44,7 +44,12 @@ public class Controller {
         Integer userId = Integer.valueOf(queryParams.get("user_id"));
 
         // Check game_id & isTeamGame
-        String queryString = String.format("SELECT game_id, team FROM game_users WHERE user_id = %d;", userId);
+        String queryString = String.format("""
+                                SELECT u.game_id, g.name, u.team 
+                                FROM game_users u 
+                                LEFT JOIN games g ON u.game_id = g.id 
+                                WHERE user_id = %d;""", userId);
+
         JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
         ArrayList<List<JSONObject>> userGameRows = (ArrayList) queryResults.get(0);
 
@@ -53,8 +58,9 @@ public class Controller {
         for (List<JSONObject> gameRow : userGameRows) {
             JSONObject rowObject = new JSONObject();
             rowObject.put("game_id", gameRow.get(0).get("value"));
-            if (gameRow.get(1) != null) {
-                rowObject.put("team", gameRow.get(1).get("value"));
+            rowObject.put("game_name", gameRow.get(1).get("value"));
+            if (gameRow.get(2) != null) {
+                rowObject.put("team", gameRow.get(2).get("value"));
             }
             userGames.add(rowObject.clone());
         }
