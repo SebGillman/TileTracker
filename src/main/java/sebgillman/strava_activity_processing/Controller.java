@@ -18,6 +18,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -45,7 +46,7 @@ public class Controller {
 
         // Check game_id & isTeamGame
         String queryString = String.format("""
-                                SELECT u.game_id, g.name, u.team 
+                                SELECT u.game_id, g.name, g.owner_id, u.team
                                 FROM game_users u 
                                 LEFT JOIN games g ON u.game_id = g.id 
                                 WHERE user_id = %d;""", userId);
@@ -59,8 +60,9 @@ public class Controller {
             JSONObject rowObject = new JSONObject();
             rowObject.put("game_id", gameRow.get(0).get("value"));
             rowObject.put("game_name", gameRow.get(1).get("value"));
-            if (gameRow.get(2) != null) {
-                rowObject.put("team", gameRow.get(2).get("value"));
+            rowObject.put("owner_id", gameRow.get(2).get("value"));
+            if (gameRow.get(3) != null) {
+                rowObject.put("team", gameRow.get(3).get("value"));
             }
             userGames.add(rowObject.clone());
         }
@@ -189,14 +191,18 @@ public class Controller {
         if (!reqBody.containsKey("name")) {
             throw new Error("Bad request: missing name");
         }
+        if (!reqBody.containsKey("owner_id")) {
+            throw new Error("Bad request: missing owner_id");
+        }
         Integer gameId = (Integer) reqBody.get("game_id");
         String gameName = (String) reqBody.get("name");
         Boolean isTeamGame = (reqBody.containsKey("teams") && reqBody.get("teams") != null) ? (boolean) reqBody.get("teams") : false;
+        Integer ownerId = (Integer) reqBody.get("owner_id");
 
         String queryString = String.format("""
-                                    INSERT INTO games (id, name, teams)
-                                    VALUES (%d,"%s",%b);
-                                    """, gameId, gameName, isTeamGame);
+                                    INSERT INTO games (id, name, teams, owner_id)
+                                    VALUES (%d,"%s",%b,%d);
+                                    """, gameId, gameName, isTeamGame, ownerId);
         executeDbQuery(Arrays.asList(queryString));
 
         // CREATE TABLE
