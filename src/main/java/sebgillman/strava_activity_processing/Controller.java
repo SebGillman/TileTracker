@@ -35,6 +35,37 @@ public class Controller {
 
     // TODO: Remove user from game (if not team game delete their tiles)
     // TODO: Delete game (delete row, users, teams, and table)
+    @DeleteMapping("/game")
+    public JSONArray DeleteGame(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
+
+        if (!queryParams.containsKey("game_id")) {
+            throw new Error("Bad request, missing game_id");
+        }
+
+        Integer gameId = Integer.valueOf(queryParams.get("game_id"));
+        ArrayList<String> queryStrings = new ArrayList<>();
+        queryStrings.add(String.format("""
+                                DELETE FROM games
+                                WHERE id = %d;""", gameId)
+        );
+        queryStrings.add(String.format("""
+                                DELETE FROM game_users
+                                WHERE game_id = %d;""", gameId)
+        );
+        queryStrings.add(String.format("""
+                                DELETE FROM game_teams
+                                WHERE game_id = %d;""", gameId)
+        );
+        queryStrings.add(String.format("""
+                                DROP TABLE tile_ownership_%d;""", gameId)
+        );
+
+        JSONArray queryResults = executeDbQuery(queryStrings);
+
+        return queryResults;
+
+    }
+
     @GetMapping("/user-games")
     public JSONArray ListUsersGames(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
