@@ -120,40 +120,42 @@ public class Controller {
         return gameTeams;
     }
 
-    @PostMapping("/add-team")
-    public String AddTeam(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+    @PostMapping("/add-teams")
+    public String AddTeams(@RequestBody ArrayList<JSONObject> reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+        for (JSONObject teamToAdd : reqBody) {
+            if (!teamToAdd.containsKey("team")) {
+                throw new Error("Bad request: missing team");
+            }
+            if (!teamToAdd.containsKey("game_id")) {
+                throw new Error("Bad request: missing game_id");
+            }
 
-        if (!reqBody.containsKey("team")) {
-            throw new Error("Bad request: missing team");
+            Integer gameId = (int) teamToAdd.get("game_id");
+            String team = (String) teamToAdd.get("team");
+
+            // Check game_id & isTeamGame
+            String queryString = String.format("SELECT teams FROM games WHERE id = %d;", gameId);
+            JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
+            JSONArray gameCheckResult = (JSONArray) queryResults.get(0);
+
+            if (gameCheckResult.isEmpty()) {
+                throw new Error("This game does not exist.");
+            }
+
+            // Check isTeamGame
+            JSONArray gameCheckRow = (JSONArray) gameCheckResult.get(0);
+            JSONObject teamObject = (JSONObject) gameCheckRow.get(0);
+            Boolean isTeamGame = Integer.parseInt((String) teamObject.get("value")) == 1;
+
+            if (!isTeamGame) {
+                throw new Error("Team attempted to be added to non-team game");
+            }
+
+            // add team
+            queryString = String.format("INSERT INTO game_teams (game_id,team) VALUES (%d,'%s');", gameId, team);
+            executeDbQuery(Arrays.asList(queryString));
+
         }
-        if (!reqBody.containsKey("game_id")) {
-            throw new Error("Bad request: missing game_id");
-        }
-
-        Integer gameId = (int) reqBody.get("game_id");
-        String team = (String) reqBody.get("team");
-
-        // Check game_id & isTeamGame
-        String queryString = String.format("SELECT teams FROM games WHERE id = %d;", gameId);
-        JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
-        JSONArray gameCheckResult = (JSONArray) queryResults.get(0);
-
-        if (gameCheckResult.isEmpty()) {
-            throw new Error("This game does not exist.");
-        }
-
-        // Check isTeamGame
-        JSONArray gameCheckRow = (JSONArray) gameCheckResult.get(0);
-        JSONObject teamObject = (JSONObject) gameCheckRow.get(0);
-        Boolean isTeamGame = Integer.parseInt((String) teamObject.get("value")) == 1;
-
-        if (!isTeamGame) {
-            throw new Error("Team attempted to be added to non-team game");
-        }
-
-        // add team
-        queryString = String.format("INSERT INTO game_teams (game_id,team) VALUES (%d,'%s');", gameId, team);
-        executeDbQuery(Arrays.asList(queryString));
         return "ok";
     }
 
