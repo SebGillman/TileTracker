@@ -41,8 +41,21 @@ public class Controller {
         if (!queryParams.containsKey("game_id")) {
             throw new Error("Bad request, missing game_id");
         }
+        if (!queryParams.containsKey("user_id")) {
+            throw new Error("Bad request, missing user_id");
+        }
 
         Integer gameId = Integer.valueOf(queryParams.get("game_id"));
+        Integer userId = Integer.valueOf(queryParams.get("user_id"));
+
+        String queryString = String.format("SELECT owner_id FROM games WHERE id = %d AND owner_id = %d;", gameId, userId);
+        JSONArray ownerCheckRes = executeDbQuery(Arrays.asList(queryString));
+        ArrayList<JSONObject> ownerCheckRows = (ArrayList) ownerCheckRes.get(0);
+
+        if (ownerCheckRows.isEmpty()) {
+            throw new Error("User is not the game owner");
+        }
+
         ArrayList<String> queryStrings = new ArrayList<>();
         queryStrings.add(String.format("""
                                 DELETE FROM games
