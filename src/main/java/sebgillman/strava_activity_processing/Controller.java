@@ -288,6 +288,29 @@ public class Controller {
         return result;
     }
 
+    @PostMapping("/rename-game")
+    public String RenameGame(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+        // Create game if doesn't exist
+
+        if (!reqBody.containsKey("game_id")) {
+            throw new Error("Bad request: missing game_id");
+        }
+        if (!reqBody.containsKey("name")) {
+            throw new Error("Bad request: missing name");
+        }
+
+        String gameName = (String) reqBody.get("name");
+        Integer gameId = (Integer) reqBody.get("game_id");
+
+        // Get games to work out lowest free game_id
+        String queryString = String.format("""
+                            UPDATE games SET name = %s WHERE id = %d;
+                            """, gameName, gameId);
+        executeDbQuery(Arrays.asList(queryString));
+
+        return "ok";
+    }
+
     @PostMapping("/process-activity")
     public String ProcessActivity(@RequestBody ProcessActivityReqBody reqBody) throws IOException, ParseException, URISyntaxException, InterruptedException {
         System.out.println("[START] /process-activity");
