@@ -215,24 +215,31 @@ public class Controller {
     }
 
     @PostMapping("/create-game")
-    public String CreateGame(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+    public JSONObject CreateGame(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
         // Create game if doesn't exist
 
-        if (!reqBody.containsKey("game_id")) {
-            throw new Error("Bad request: missing game_id");
-        }
         if (!reqBody.containsKey("name")) {
             throw new Error("Bad request: missing name");
         }
         if (!reqBody.containsKey("owner_id")) {
             throw new Error("Bad request: missing owner_id");
         }
-        Integer gameId = (Integer) reqBody.get("game_id");
+
         String gameName = (String) reqBody.get("name");
         Boolean isTeamGame = (reqBody.containsKey("teams") && reqBody.get("teams") != null) ? (boolean) reqBody.get("teams") : false;
         Integer ownerId = (Integer) reqBody.get("owner_id");
 
-        String queryString = String.format("""
+        // Get games to work out lowest free game_id
+        String queryString = """
+                            SELECT id+1 as first_free_id FROM games WHERE id+1 NOT IN (SELECT id FROM games) LIMIT 1;
+                            """;
+        JSONArray querySetResults = executeDbQuery(Arrays.asList(queryString));
+        JSONArray queryResults = (JSONArray) querySetResults.get(0);
+        JSONArray row = (JSONArray) queryResults.get(0);
+        JSONObject gameIdObject = (JSONObject) row.get(0);
+        Integer gameId = Integer.valueOf((String) gameIdObject.get("value"));
+
+        queryString = String.format("""
                                     INSERT INTO games (id, name, teams, owner_id)
                                     VALUES (%d,"%s",%b,%d);
                                     """, gameId, gameName, isTeamGame, ownerId);
@@ -262,7 +269,10 @@ public class Controller {
 
         executeDbQuery(queries);
 
-        return "ok";
+        JSONObject result = new JSONObject();
+        result.put("game_id", gameId);
+
+        return result;
     }
 
     @PostMapping("/process-activity")
