@@ -37,3 +37,4 @@ outputVisualisation.txt
 .env
 setenv.ps1
 application-dev.properties
+application.yml
