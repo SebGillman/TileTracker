@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -33,8 +34,6 @@ public class Controller {
     @Value("${TILES_DB_TOKEN}")
     private String tilesDbToken;
 
-    // TODO: Remove user from game (if not team game delete their tiles)
-    // TODO: Delete game (delete row, users, teams, and table)
     @DeleteMapping("/game")
     public JSONArray DeleteGame(@RequestParam Map<String, String> queryParams) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
@@ -47,13 +46,15 @@ public class Controller {
 
         Integer gameId = Integer.valueOf(queryParams.get("game_id"));
         Integer userId = Integer.valueOf(queryParams.get("user_id"));
+        String password = (queryParams.containsKey("password") && queryParams.get("password") != null) ? (String) queryParams.get("password") : null;
 
-        String queryString = String.format("SELECT owner_id FROM games WHERE id = %d AND owner_id = %d;", gameId, userId);
+        String queryString = String.format("SELECT owner_id FROM games WHERE id = %d AND owner_id = %d AND game_password %s;",
+                gameId, userId, password == null ? "IS NULL" : String.format("= '%s'", password));
         JSONArray ownerCheckRes = executeDbQuery(Arrays.asList(queryString));
         ArrayList<JSONObject> ownerCheckRows = (ArrayList) ownerCheckRes.get(0);
 
         if (ownerCheckRows.isEmpty()) {
-            throw new Error("User is not the game owner");
+            throw new Error("User is not the game owner or bad password provided");
         }
 
         ArrayList<String> queryStrings = new ArrayList<>();
@@ -90,7 +91,7 @@ public class Controller {
 
         // Check game_id & isTeamGame
         String queryString = String.format("""
-                                SELECT u.game_id, g.name, g.owner_id, u.team
+                                SELECT u.game_id, g.name, g.owner_id, u.team, g.game_password
                                 FROM game_users u 
                                 LEFT JOIN games g ON u.game_id = g.id 
                                 WHERE user_id = %d;""", userId);
@@ -101,12 +102,20 @@ public class Controller {
         JSONArray userGames = new JSONArray();
 
         for (List<JSONObject> gameRow : userGameRows) {
+
+            Integer game_id = Integer.valueOf((String) gameRow.get(0).get("value"));
+            String game_name = (String) gameRow.get(1).get("value");
+            Integer owner_id = Integer.valueOf((String) gameRow.get(2).get("value"));
+
             JSONObject rowObject = new JSONObject();
-            rowObject.put("game_id", gameRow.get(0).get("value"));
-            rowObject.put("game_name", gameRow.get(1).get("value"));
-            rowObject.put("owner_id", gameRow.get(2).get("value"));
+            rowObject.put("game_id", game_id);
+            rowObject.put("game_name", game_name);
+            rowObject.put("owner_id", owner_id);
             if (gameRow.get(3) != null) {
                 rowObject.put("team", gameRow.get(3).get("value"));
+            }
+            if (Objects.equals(owner_id, userId)) {
+                rowObject.put("password", gameRow.get(4).get("value"));
             }
             userGames.add(rowObject.clone());
         }
@@ -182,14 +191,17 @@ public class Controller {
         Integer userId = (Integer) reqBody.get("user_id");
         Integer gameId = (reqBody.containsKey("game_id")) ? (int) reqBody.get("game_id") : 1;
         String team = (reqBody.containsKey("team") && reqBody.get("team") != null) ? (String) reqBody.get("team") : null;
+        String password = (reqBody.containsKey("password") && reqBody.get("password") != null) ? (String) reqBody.get("password") : null;
 
         // Check game_id & isTeamGame
-        String queryString = String.format("SELECT teams FROM games WHERE id = %d;", gameId);
+        String queryString = String.format("SELECT teams FROM games WHERE id = %d AND game_password %s;",
+                gameId, password == null ? "IS NULL" : String.format("= '%s'", password));
+
         JSONArray queryResults = executeDbQuery(Arrays.asList(queryString));
         JSONArray gameCheckResult = (JSONArray) queryResults.get(0);
 
         if (gameCheckResult.isEmpty()) {
-            throw new Error("This game does not exist.");
+            throw new Error("This game does not exist or an incorrect password was given.");
         }
 
         // Check isTeamGame matches whether team specified
@@ -242,6 +254,10 @@ public class Controller {
         Boolean isTeamGame = (reqBody.containsKey("teams") && reqBody.get("teams") != null) ? (boolean) reqBody.get("teams") : false;
         Integer ownerId = (Integer) reqBody.get("owner_id");
 
+        // generate password
+        Integer passwordLength = 10;
+        String password = PasswordGenerator.generateRandomString(passwordLength);
+
         // Get games to work out lowest free game_id
         String queryString = """
                             SELECT id+1 as first_free_id FROM games WHERE id+1 NOT IN (SELECT id FROM games) LIMIT 1;
@@ -253,9 +269,9 @@ public class Controller {
         Integer gameId = Integer.valueOf((String) gameIdObject.get("value"));
 
         queryString = String.format("""
-                                    INSERT INTO games (id, name, teams, owner_id)
-                                    VALUES (%d,"%s",%b,%d);
-                                    """, gameId, gameName, isTeamGame, ownerId);
+                                    INSERT INTO games (id, name, teams, owner_id, game_password)
+                                    VALUES (%d,"%s",%b,%d,'%s');
+                                    """, gameId, gameName, isTeamGame, ownerId, password);
         executeDbQuery(Arrays.asList(queryString));
 
         // CREATE TABLE
@@ -301,11 +317,10 @@ public class Controller {
 
         String gameName = (String) reqBody.get("name");
         Integer gameId = (Integer) reqBody.get("game_id");
-
-        // Get games to work out lowest free game_id
+        String password = (String) reqBody.get("password");
         String queryString = String.format("""
-                            UPDATE games SET name = "%s" WHERE id = %d;
-                            """, gameName, gameId);
+                            UPDATE games SET name = "%s" WHERE id = %d AND game_password %s;
+                            """, gameName, gameId, password == null ? "IS NULL" : String.format("= '%s'", password));
         executeDbQuery(Arrays.asList(queryString));
 
         return "ok";

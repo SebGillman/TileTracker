@@ -141,7 +141,6 @@ public final class TileSet {
         return new FloodFillOutput(inside, filledTiles);
     }
 
-// BUG: if a rayline brushes an edge without crossing it then fails
     private boolean isInside(List<Integer> candidateTile, HashMap<List<Integer>, Integer> outline) {
 
         // 4-axis ray casting to check if odd number of edge crossings in each axis

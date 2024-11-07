@@ -8,6 +8,7 @@ public class StravaActivityProcessingApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(StravaActivityProcessingApplication.class, args);
+
     }
 
 }
