@@ -19,6 +19,8 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -182,7 +184,7 @@ public class Controller {
     }
 
     @PostMapping("/add-player")
-    public String AddPlayer(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
+    public ResponseEntity<String> AddPlayer(@RequestBody JSONObject reqBody) throws URISyntaxException, IOException, InterruptedException, ParseException {
 
         if (!reqBody.containsKey("user_id")) {
             throw new Error("Bad request: missing user_id");
@@ -201,7 +203,7 @@ public class Controller {
         JSONArray gameCheckResult = (JSONArray) queryResults.get(0);
 
         if (gameCheckResult.isEmpty()) {
-            throw new Error("This game does not exist or an incorrect password was given.");
+            return new ResponseEntity<>("This game does not exist or an incorrect password was given.", HttpStatus.NOT_FOUND);
         }
 
         // Check isTeamGame matches whether team specified
@@ -210,7 +212,7 @@ public class Controller {
         Boolean isTeamGame = Integer.parseInt((String) teamObject.get("value")) == 1;
 
         if (isTeamGame == (team == null)) {
-            throw new Error(String.format("Gave team as %s when game teams setting is %b", (team == null) ? "null" : team, isTeamGame));
+            return new ResponseEntity<>(String.format("Gave team as %s when game teams setting is %b", (team == null) ? "null" : team, isTeamGame), HttpStatus.NOT_FOUND);
         }
 
         // if isTeamGame:
@@ -220,7 +222,8 @@ public class Controller {
             queryResults = executeDbQuery(Arrays.asList(queryString));
             JSONArray teamCheckRows = (JSONArray) queryResults.get(0);
             if (teamCheckRows.isEmpty()) {
-                throw new Error("Specified team does not exist in this game");
+                return new ResponseEntity<>("Specified team does not exist in this game", HttpStatus.NOT_FOUND);
+
             }
         }
 
@@ -236,7 +239,7 @@ public class Controller {
                         """, userId, gameId, team);
 
         executeDbQuery(Arrays.asList(queryString));
-        return "ok";
+        return new ResponseEntity<>("ok", HttpStatus.OK);
     }
 
     @PostMapping("/create-game")
