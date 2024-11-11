@@ -303,6 +303,7 @@ public class Controller {
 
         JSONObject result = new JSONObject();
         result.put("game_id", gameId);
+        result.put("password", password);
 
         return result;
     }
