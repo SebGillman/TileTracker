@@ -427,6 +427,19 @@ public class Controller {
         Integer offset = queryParams.containsKey("offset") ? Integer.valueOf(queryParams.get("offset")) : 0;
         String userId = queryParams.containsKey("user_id") ? (String) queryParams.get("user_id") : null;
 
+        JSONObject res = new JSONObject();
+
+        String gameTeamsQuery = String.format("""
+            SELECT teams from games WHERE id = %d;
+            """, gameId);
+        JSONArray gameTeamsResults = executeDbQuery(Arrays.asList(gameTeamsQuery));
+        JSONArray gameTeamsRows = (JSONArray) gameTeamsResults.get(0);
+        JSONArray gameTeamsRow = (JSONArray) gameTeamsRows.get(0);
+        JSONObject gameTeamsObject = (JSONObject) gameTeamsRow.get(0);
+        Integer isTeamGame = Integer.valueOf((String) gameTeamsObject.get("value"));
+
+        res.put("teams", isTeamGame);
+
         List<String> queryList = new ArrayList<>();
 
         String leaderboardQuery = String.format("""
@@ -445,7 +458,7 @@ public class Controller {
         if (userId != null) {
             // Check if team game, if so, will need to query by team
             String userTeamQuery = String.format("""
-            SELECT team from game_users WHERE user_id = %s AND game_id = %d;
+            SELECT team from game_users WHERE user_id = "%s" AND game_id = %d;
             """, userId, gameId);
             JSONArray userTeamResult = executeDbQuery(Arrays.asList(userTeamQuery));
             JSONArray userTeamRows = (JSONArray) userTeamResult.get(0);
@@ -466,7 +479,7 @@ public class Controller {
             FROM tile_ownership_%d 
             GROUP BY user_id
             ) t1
-            WHERE t1.user_id = %s;
+            WHERE t1.user_id = "%s";
             """, gameId, player
             );
             queryList.add(userRankQuery);
@@ -494,7 +507,6 @@ public class Controller {
             leaderboard.add(leaderboardEntry.clone());
         }
 
-        JSONObject res = new JSONObject();
         res.put("leaderboard", leaderboard);
 
         if (queryResponses.size() > 1) {
